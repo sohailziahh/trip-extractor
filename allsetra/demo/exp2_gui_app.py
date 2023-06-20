@@ -31,8 +31,6 @@ sns.set(rc={'axes.facecolor':'black', 'figure.facecolor':'gray', 'figure.figsize
 geolocator = Nominatim(user_agent="Allsetra-Tracking")
 
 
-
-
 def to_seconds(timestamp_str):
     timestamp_obj = datetime.strptime(timestamp_str, "%H:%M:%S")
     total_seconds = timestamp_obj.hour * 3600 + timestamp_obj.minute * 60 + timestamp_obj.second
@@ -180,11 +178,12 @@ def get_trips_using_gap_splitter(df):
     return final_gap_splitter_df
 
 
+st.warning("Upload the Positiondump utc.xlsx. or another xlsx file but with same schema.")
+
 uploaded_file = st.file_uploader("Upload Excel file")
 
 if uploaded_file is not None:
 
-    st.warning("Upload the Positiondump utc.xlsx. or another xlsx file but with same schema.")
 
     df = pd.read_excel(uploaded_file)
 
