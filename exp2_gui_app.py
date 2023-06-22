@@ -8,7 +8,6 @@ from haversine import haversine, Unit
 import seaborn as sns
 from datetime import datetime
 from visualz import plot
-from streamlit_folium import st_folium, folium_static
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -184,7 +183,7 @@ def get_trips_using_gap_splitter(df):
 #
 #     m = folium.Map(location=[lat_mean, long_mean],
 #                    zoom_start=4, control_scale=True)
-# 
+#
 #
 #
 #     # Loop through each row in the dataframe
