@@ -9,9 +9,6 @@ import seaborn as sns
 from datetime import datetime
 from visualz import plot
 
-import folium
-from streamlit_folium import st_folium, folium_static
-
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -178,31 +175,31 @@ def get_trips_using_gap_splitter(df):
     # combined_dfs = pd.concat(dfs)
     final_gap_splitter_df = get_final_df_from_traj_collection(splitted_traj)
     return final_gap_splitter_df
-
-def plot_on_folium(df):
-
-    lat_mean = df["start_gps_point"].apply(lambda x:x[0]).mean()
-    long_mean = df["start_gps_point"].apply(lambda x:x[1]).mean()
-
-    m = folium.Map(location=[lat_mean, long_mean],
-                   zoom_start=4, control_scale=True)
-
-
-
-    # Loop through each row in the dataframe
-    for i, row in df.iterrows():
-        # Setup the content of the popup
-        iframe = folium.IFrame('Allsetra')
-
-        # Initialise the popup using the iframe
-        popup = folium.Popup(iframe, min_width=300, max_width=300)
-
-        # Add each row to the map
-        folium.Marker(location=[row['latitude'], row['longitude']],
-                      popup=popup, c=row['Well Name']).add_to(m)
-
-    st_data = folium_static(m, width=700)
-
+#
+# def plot_on_folium(df):
+#
+#     lat_mean = df["start_gps_point"].apply(lambda x:x[0]).mean()
+#     long_mean = df["start_gps_point"].apply(lambda x:x[1]).mean()
+#
+#     m = folium.Map(location=[lat_mean, long_mean],
+#                    zoom_start=4, control_scale=True)
+#
+#
+#
+#     # Loop through each row in the dataframe
+#     for i, row in df.iterrows():
+#         # Setup the content of the popup
+#         iframe = folium.IFrame('Allsetra')
+#
+#         # Initialise the popup using the iframe
+#         popup = folium.Popup(iframe, min_width=300, max_width=300)
+#
+#         # Add each row to the map
+#         folium.Marker(location=[row['latitude'], row['longitude']],
+#                       popup=popup, c=row['Well Name']).add_to(m)
+#
+#     st_data = folium_static(m, width=700)
+#
 
 st.warning("Upload the Positiondump utc.xlsx. or another xlsx file but with same schema.")
 
