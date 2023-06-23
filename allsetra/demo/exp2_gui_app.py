@@ -130,19 +130,38 @@ def get_final_df_from_traj_collection(traj_collection):
 
         debug_durations.append(diff)
 
-        #durations.append(str(diff).split("days")[-1].split(".")[0])
+        # durations.append(str(diff).split("days")[-1].split(".")[0])
         durations.append(diff)
+
+        distances_sum = 0
+
+        timestamps = trajectory.df.index.to_list()
+
+        sub_df = trajectory.df
+
+        for idx, timestamp in enumerate(timestamps):
+            if idx == 0:
+                continue
+
+            start_xy = (
+            sub_df[sub_df.index == timestamp].geometry.x[0], sub_df[sub_df.index == timestamp].geometry.y[0])
+            prv_timestamp = timestamps[idx - 1]
+            end_xy = (
+            sub_df[sub_df.index == prv_timestamp].geometry.x[0], sub_df[sub_df.index == prv_timestamp].geometry.y[0])
+
+            curr_distance = haversine(start_xy, end_xy, unit=Unit.KILOMETERS)
+            distances_sum += curr_distance
 
         start_xy = (trajectory.df["geometry"].x[0], trajectory.df["geometry"].y[0])
         end_xy = (trajectory.df["geometry"].x[-1], trajectory.df["geometry"].y[-1])
 
-        #start_addrs.append(get_address_from_GeoPoint(trajectory.df["geometry"].iloc[0]))
-        #end_addrs.append(get_address_from_GeoPoint(trajectory.df["geometry"].iloc[-1]))
+        # start_addrs.append(get_address_from_GeoPoint(trajectory.df["geometry"].iloc[0]))
+        # end_addrs.append(get_address_from_GeoPoint(trajectory.df["geometry"].iloc[-1]))
 
         start_longs_and_lats.append(start_xy)
         end_longs_and_lats.append(end_xy)
 
-        distances.append(haversine(start_xy, end_xy, unit=Unit.KILOMETERS))
+        distances.append(distances_sum)
 
     # data["start_trip_addr"] = start_addrs
     # data["end_trip_addr"] = end_addrs
