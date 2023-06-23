@@ -161,15 +161,17 @@ def get_final_df_from_traj_collection(traj_collection):
 
 
 def remove_outliers(df):
-    df = df[df["speed"] < 200]
+    df = df[df["speed"] < 250]
+    df = df.reset_index()
+    df = df.drop("index", axis=1)
     return df.reset_index()
 
 
-def get_trips_using_gap_splitter(df):
+def get_trips_using_gap_splitter(df, duration):
 
     traj = mpd.Trajectory(df[["DateTimeOfPosition", "long", "lat"]], "Allsetra", x='lat', y='long',
                           t='DateTimeOfPosition', crs=4326)
-    splitted_traj = mpd.ObservationGapSplitter(traj).split(gap=timedelta(minutes=3))
+    splitted_traj = mpd.ObservationGapSplitter(traj).split(gap=timedelta(seconds=duration))
     # dfs = [splitted.df for splitted in splitted_traj.trajectories]
     #
     # combined_dfs = pd.concat(dfs)
@@ -213,10 +215,10 @@ if "df" in st.session_state or uploaded_file is not None:
 
     df = pd.read_excel(uploaded_file) if "df" not in st.session_state else st.session_state["df"]
 
-    if "df" not in st.session_state:
+    if "gpspoint" in df.columns.tolist() or "df" not in st.session_state:
         df = df.rename( columns={"gpspoint": "GPSpoint", "datetimeofposition": "DateTimeOfPosition", "ignitionon": "IgnitionOn"})
 
-    st.write(f""":red[According to this data, the Car Ignition value was ON  %{(len(df[df["IgnitionOn"] == 1]) / len(df)) * 100} times.] """)
+    st.write(f""":red[According to this data, the Car Ignition value was ON  {round(((len(df[df["IgnitionOn"] == 1]) / len(df)) * 100))}% times.] """)
 
     st.session_state["df"] = df.copy()
 
@@ -248,7 +250,7 @@ if "df" in st.session_state or uploaded_file is not None:
     cleaned_df = add_more_data_into_df(cleaned_df)
 
     with st.spinner("Detecting trips.."):
-        final_df = get_trips_using_gap_splitter(remove_outliers(cleaned_df))
+        final_df = get_trips_using_gap_splitter(remove_outliers(cleaned_df), duration)
 
     # num_data_points = st.sidebar.slider(
     #     "Number of data points to visualize", min_value=10, max_value=len(final_df), step=10, value=len(final_df)
@@ -260,6 +262,7 @@ if "df" in st.session_state or uploaded_file is not None:
 
     # Number of trips detected
     final_df = further_clean(final_df, duration)
+    final_df = final_df.reset_index().drop("index", axis=1)
     st.subheader(f":violet[Was able to detect #{len(final_df)} trips.] ")
     df = post_process_df(final_df)
     st.dataframe(df)
