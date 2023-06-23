@@ -31,10 +31,13 @@ sns.set(rc={'axes.facecolor':'black', 'figure.facecolor':'gray', 'figure.figsize
 geolocator = Nominatim(user_agent="Allsetra-Tracking")
 
 
+
+
 def to_seconds(timestamp_str):
     timestamp_obj = datetime.strptime(timestamp_str, "%H:%M:%S")
     total_seconds = timestamp_obj.hour * 3600 + timestamp_obj.minute * 60 + timestamp_obj.second
     return total_seconds
+
 
 
 #Convert Longs and Lats to floats.
@@ -52,11 +55,6 @@ def get_address_from_GeoPoint(point):
     # print(f"Point: {point}, Query: {query}, Addr: {location.address}")
     return location.address
 
-
-def further_clean(df, duration):
-    # remove those trip with trip_duration less than 3 minutes
-
-    return df[(df["trip_duration"].dt.seconds > duration) & ((df["trip_distance_in_km"] * 1000) >= 900) ]
 
 
 def post_process_df(df):
@@ -78,8 +76,7 @@ def add_more_data_into_df(cleaned_df):
         cleaned_df.at[i, 'haversine_distance'] = dist
         cleaned_df.at[i, 'duration'] = duration
 
-    cleaned_df["duration"] = cleaned_df.duration.apply(lambda x: x.seconds)
-    cleaned_df["speed"] = cleaned_df["haversine_distance"] / (cleaned_df["duration"] / 3600)
+    cleaned_df["speed"] = cleaned_df["haversine_distance"] / (cleaned_df["duration"].dt.seconds / 3600)
     return cleaned_df
 
 
@@ -160,73 +157,26 @@ def get_final_df_from_traj_collection(traj_collection):
     return pd.DataFrame(data)
 
 
-def remove_outliers(df):
-    df = df[df["speed"] < 250]
-    df = df.reset_index()
-    df = df.drop("index", axis=1)
-    return df.reset_index()
-
-
-def get_trips_using_gap_splitter(df, duration):
-
+def get_trips_using_gap_splitter(df):
     traj = mpd.Trajectory(df[["DateTimeOfPosition", "long", "lat"]], "Allsetra", x='lat', y='long',
                           t='DateTimeOfPosition', crs=4326)
-    splitted_traj = mpd.ObservationGapSplitter(traj).split(gap=timedelta(seconds=duration))
+    splitted_traj = mpd.ObservationGapSplitter(traj).split(gap=timedelta(minutes=3))
     # dfs = [splitted.df for splitted in splitted_traj.trajectories]
     #
     # combined_dfs = pd.concat(dfs)
     final_gap_splitter_df = get_final_df_from_traj_collection(splitted_traj)
     return final_gap_splitter_df
-#
-# def plot_on_folium(df):
-#
-#     lat_mean = df["start_gps_point"].apply(lambda x:x[0]).mean()
-#     long_mean = df["start_gps_point"].apply(lambda x:x[1]).mean()
-#
-#     m = folium.Map(location=[lat_mean, long_mean],
-#                    zoom_start=4, control_scale=True)
-#
-#
-#
-#     # Loop through each row in the dataframe
-#     for i, row in df.iterrows():
-#         # Setup the content of the popup
-#         iframe = folium.IFrame('Allsetra')
-#
-#         # Initialise the popup using the iframe
-#         popup = folium.Popup(iframe, min_width=300, max_width=300)
-#
-#         # Add each row to the map
-#         folium.Marker(location=[row['latitude'], row['longitude']],
-#                       popup=popup, c=row['Well Name']).add_to(m)
-#
-#     st_data = folium_static(m, width=700)
-#
-
-st.warning("Upload the Positiondump utc.xlsx. or another xlsx file but with same schema.")
-
-uploaded_file = None
-
-if "df" not in st.session_state:
-    uploaded_file = st.file_uploader("Upload Excel file")
 
 
-if "df" in st.session_state or uploaded_file is not None:
-
-    df = pd.read_excel(uploaded_file) if "df" not in st.session_state else st.session_state["df"]
-
-    if "gpspoint" in df.columns.tolist() or "df" not in st.session_state:
-        df = df.rename( columns={"gpspoint": "GPSpoint", "datetimeofposition": "DateTimeOfPosition", "ignitionon": "IgnitionOn"})
-
-    st.write(f""":red[According to this data, the Car Ignition value was ON  {round(((len(df[df["IgnitionOn"] == 1]) / len(df)) * 100))}% times.] """)
-
-    st.session_state["df"] = df.copy()
+def main():
 
     duration = st.sidebar.slider(
-        "Min Duration to consider for detecting gaps in the data", min_value=180, max_value=900, step=10, value=500
+        "Min Duration to consider for detecting gaps in the data", min_value=60, max_value=600, step=10, value=180
     )
 
     st.header(":blue[New Trip Detection Algo]")
+
+    df = pd.read_excel("positiondump utc .xlsx", index_col=[0])
 
     # Get Long/Lat from data.
     df["long"] = df["GPSpoint"].apply(lambda x: x.split(",")[0])
@@ -247,44 +197,37 @@ if "df" in st.session_state or uploaded_file is not None:
 
     cleaned_df = clean_df_using_ignition_values(df)
 
-    cleaned_df = add_more_data_into_df(cleaned_df)
-
     with st.spinner("Detecting trips.."):
-        final_df = get_trips_using_gap_splitter(remove_outliers(cleaned_df), duration)
+        final_df = get_trips_using_gap_splitter(cleaned_df)
 
-    # num_data_points = st.sidebar.slider(
-    #     "Number of data points to visualize", min_value=10, max_value=len(final_df), step=10, value=len(final_df)
-    # )
-    #
-    # st.session_state.num_data_points = num_data_points
-    #
-    # print(num_data_points)
+    num_data_points = st.sidebar.slider(
+        "Number of data points to visualize", min_value=10, max_value=len(final_df), step=10, value=len(final_df)
+    )
+
+    st.session_state.num_data_points = num_data_points
+
+    print(num_data_points)
+
+    final_df["trip_duration"] = final_df.trip_duration.apply(lambda x: x.seconds)
+    final_df["speed"] = final_df["trip_distance_in_km"] / (final_df["trip_duration"] / 3600)
 
     # Number of trips detected
-    final_df = further_clean(final_df, duration)
-    final_df = final_df.reset_index().drop("index", axis=1)
     st.subheader(f":violet[Was able to detect #{len(final_df)} trips.] ")
-    df = post_process_df(final_df)
-    st.dataframe(df)
+    st.dataframe(post_process_df(final_df))
 
     st.markdown("---")
 
     # Summary
     st.subheader(f":violet[Descriptive Statistics] ")
     st.warning("Please note that the trip duration here is shown in seconds. ")
-
-    final_df["trip_duration"] = final_df.trip_duration.apply(lambda x: x.seconds)
-    final_df["speed"] = final_df["trip_distance_in_km"] / (final_df["trip_duration"] / 3600)
-
-    st.dataframe(final_df[["trip_distance_in_km", "trip_duration" , "speed"]].describe())
+    st.dataframe(final_df[["trip_distance_in_km", "speed"]].describe())
 
     st.markdown("---")
 
-    #
-    # text_input = st.text_input(f"Index of the record that u want to display on map. :red[Choose from: 0->{len(final_df)-1}]", 0)
-    # st.write(final_df.iloc[int(text_input)])
 
-    #plot(final_df, st.session_state.num_data_points)
+    plot(final_df, st.session_state.num_data_points)
 
 
 
+if __name__ == '__main__':
+    main()
